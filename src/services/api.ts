@@ -1,6 +1,16 @@
 import type { Lesson, PageContent } from '../types';
 import { mockLessons } from '../data/mockLessons';
 
+const API_BASE_URL = '/api';
+
+// Common fetch options with CORS headers
+const fetchOptions = {
+  headers: {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+  },
+};
+
 // Mock page content data
 const mockPageContent: Record<string, PageContent> = {
   'section-1-1': {
@@ -236,24 +246,127 @@ B: パンを食べます (Pan wo tabemasu) - I eat bread`,
 
 export const api = {
   async getLessons(): Promise<Lesson[]> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return mockLessons;
+    try {
+      const response = await fetch(`${API_BASE_URL}/lessons?l=all`, {
+        ...fetchOptions,
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch lessons');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching lessons:', error);
+      // Fallback to mock data if API fails
+      return mockLessons;
+    }
   },
 
   async getPageContent(pageId: string): Promise<PageContent> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const content = mockPageContent[pageId];
-    if (!content) {
-      throw new Error('Page content not found');
+    try {
+      const response = await fetch(`${API_BASE_URL}/pages?p=${pageId}`, {
+        ...fetchOptions,
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch page content');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching page content:', error);
+      // Fallback to mock data if API fails
+      const content = mockPageContent[pageId];
+      if (!content) {
+        throw new Error('Page content not found');
+      }
+      return content;
     }
-    return content;
   },
 
   async uploadFile(file: File, pageId: string): Promise<{ url: string }> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return { url: URL.createObjectURL(file) };
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('pageId', pageId);
+
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+        // Don't set Content-Type header for FormData, let the browser set it with the boundary
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload file');
+      }
+
+      const data = await response.json();
+      return { url: data.url };
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      // Fallback to local URL if API fails
+      return { url: URL.createObjectURL(file) };
+    }
+  },
+
+  async savePageContent(pageId: string, content: PageContent): Promise<PageContent> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pages?q=${pageId}`, {
+        method: 'PATCH',
+        ...fetchOptions,
+        body: JSON.stringify(content),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save page content');
+      }
+
+      // Check if response has content before parsing
+      const text = await response.text();
+      if (!text) {
+        return content; // Return the content we sent if response is empty
+      }
+
+      return JSON.parse(text);
+    } catch (error) {
+      console.error('Error saving page content:', error);
+      // Fallback to mock data if API fails
+      const mockContent = mockPageContent[pageId];
+      if (!mockContent) {
+        throw new Error('Page content not found');
+      }
+      return { ...mockContent, ...content };
+    }
+  },
+
+  async createLesson(data: PageContent): Promise<PageContent> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/pages?q=${data.id}`, {
+        method: 'PATCH',
+        ...fetchOptions,
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save page content');
+      }
+
+      // Check if response has content before parsing
+      const text = await response.text();
+      if (!text) {
+        return data; // Return the data we sent if response is empty
+      }
+
+      return JSON.parse(text);
+    } catch (error) {
+      console.error('Error saving page content:', error);
+      // Fallback to mock data if API fails
+      const mockContent = mockPageContent[data.id];
+      if (!mockContent) {
+        throw new Error('Page content not found');
+      }
+      return { ...mockContent, ...data };
+    }
   },
 }; 

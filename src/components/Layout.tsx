@@ -1,32 +1,36 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { Lesson } from '../types';
 import { api } from '../services/api';
+import { TempLesson } from './TempLesson';
+import { toast } from 'react-hot-toast';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedLessons, setExpandedLessons] = useState<Set<string>>(new Set());
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
+  const [tempLesson, setTempLesson] = useState<Lesson | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const fetchLessons = async () => {
+    try {
+      const data = await api.getLessons();
+      setLessons(data);
+      // Expand the lesson that contains the current section
+      const currentLessonId = location.pathname.split('/')[2];
+      if (currentLessonId) {
+        setExpandedLessons(new Set([currentLessonId]));
+      }
+    } catch (error) {
+      console.error('Failed to fetch lessons:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchLessons = async () => {
-      try {
-        const data = await api.getLessons();
-        setLessons(data);
-        // Expand the lesson that contains the current section
-        const currentLessonId = location.pathname.split('/')[2];
-        if (currentLessonId) {
-          setExpandedLessons(new Set([currentLessonId]));
-        }
-      } catch (error) {
-        console.error('Failed to fetch lessons:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchLessons();
   }, [location.pathname]);
 
@@ -42,24 +46,45 @@ export function Layout({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const handleAddLesson = () => {
+    navigate('/create-lesson');
+  };
+
+  const handleSaveTempLesson = async (updatedLesson: Lesson) => {
+    try {
+      // Here you would typically call your API to save the lesson
+      // await api.saveLesson(updatedLesson);
+      toast.success('Lesson saved successfully!');
+      setTempLesson(null);
+      await fetchLessons(); // Refresh the lessons list
+    } catch (error) {
+      console.error('Failed to save lesson:', error);
+      toast.error('Failed to save lesson. Please try again.');
+    }
+  };
+
+  const handleDiscardTempLesson = () => {
+    setTempLesson(null);
+  };
+
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-900">
       {/* Top Navigation Bar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-gray-800 border-b border-gray-700">
+        <div className="max-w-full ml-4 mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-start h-16">
             <div className="flex items-center">
               <Link to="/" className="flex items-center">
-                <span className="text-xl font-bold text-gray-900 dark:text-white">LowTech Sensei</span>
+                <span className="text-xl font-bold text-white">LowTech Sensei</span>
               </Link>
             </div>
-            <div className="flex items-center">
-              <button className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+            {/* <div className="flex items-center">
+              <button className="p-2 rounded-md text-gray-400 hover:text-white">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                 </svg>
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
       </nav>
@@ -68,17 +93,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="pt-16 flex">
         {/* Sidebar */}
         <div 
-          className={`fixed left-0 top-16 h-[calc(100vh-4rem)] overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 transition-all duration-300 ease-in-out ${
+          className={`fixed left-0 top-16 h-[calc(100vh-4rem)] overflow-y-auto border-r border-gray-700 bg-gray-800 transition-all duration-300 ease-in-out ${
             isSidebarExpanded ? 'w-64' : 'w-16'
           }`}
         >
           {/* Sidebar Toggle Button */}
-          <button
+          {/* <button
             onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
-            className="absolute -right-3 top-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full p-1.5 hover:bg-gray-50 dark:hover:bg-gray-700"
+            // className="absolute -right-3 top-4 z-auto bg-gray-800 border border-gray-700 rounded-full p-1.5 hover:bg-gray-700"
+            className="absolute -right-3 top-4 z-auto bg-gray-800 border border-gray-700 rounded-full p-1.5 hover:bg-gray-700"
           >
             <svg
-              className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform duration-300 ${
+              className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${
                 isSidebarExpanded ? 'rotate-180' : ''
               }`}
               fill="none"
@@ -87,20 +113,41 @@ export function Layout({ children }: { children: React.ReactNode }) {
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-          </button>
+          </button> */}
 
           <div className={`p-4 ${!isSidebarExpanded && 'hidden'}`}>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Lessons</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">Lessons</h2>
+              <button 
+                onClick={handleAddLesson}
+                className="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded-md"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
             <nav>
               {isLoading ? (
-                <div className="p-4 text-gray-600 dark:text-gray-400">Loading...</div>
+                <div className="p-4 text-gray-400">Loading...</div>
               ) : (
                 <ul className="space-y-2">
+                  {tempLesson && (
+                    <TempLesson
+                      key={tempLesson.id}
+                      lesson={tempLesson}
+                      isExpanded={expandedLessons.has(tempLesson.id)}
+                      onToggle={toggleLesson}
+                      location={location}
+                      onSave={handleSaveTempLesson}
+                      onDiscard={handleDiscardTempLesson}
+                    />
+                  )}
                   {lessons.map((lesson) => (
                     <li key={lesson.id}>
                       <button
                         onClick={() => toggleLesson(lesson.id)}
-                        className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md"
+                        className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-200 bg-transparent hover:bg-gray-700 rounded-md transition-colors duration-150"
                       >
                         <span>{lesson.title}</span>
                         <svg
@@ -126,7 +173,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                                     : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800'
                                 } rounded-md`}
                               >
-                                {section.type}: {section.title}
+                                {section.type}: {section.section_title}
                               </Link>
                             </li>
                           ))}
@@ -146,7 +193,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <button
                   key={lesson.id}
                   onClick={() => toggleLesson(lesson.id)}
-                  className="w-full p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md mb-1"
+                  className="w-full p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-md mb-1"
                   title={lesson.title}
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

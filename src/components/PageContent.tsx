@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import type { PageContent } from '../types';
 import { api } from '../services/api';
 import ReactMarkdown from 'react-markdown';
+import { toast } from 'react-hot-toast';
 
 export function PageContentComponent() {
   const { pageId } = useParams<{ pageId: string }>();
@@ -10,14 +11,17 @@ export function PageContentComponent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editedMarkdown, setEditedMarkdown] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const fetchContent = async () => {
       if (!pageId) return;
       try {
         const data = await api.getPageContent(pageId);
+        console.log(data);
         setContent(data);
-        setEditedMarkdown(data.markdown);
+        setEditedMarkdown(data.markdown || data.content || '');
       } catch (error) {
         console.error('Failed to fetch page content:', error);
       } finally {
@@ -28,36 +32,66 @@ export function PageContentComponent() {
     fetchContent();
   }, [pageId]);
 
+  const handleSave = async () => {
+    if (!pageId || !content) return;
+    setIsSaving(true);
+    try {
+      // Update content state with new markdown
+      const updatedContent = {
+        ...content,
+        markdown: editedMarkdown
+      };
+      setContent(updatedContent);
+
+      // Send entire updated content to API
+      const savedContent = await api.savePageContent(pageId, updatedContent);
+      setContent(savedContent);
+      setIsEditing(false);
+      toast.success('Content saved successfully!');
+    } catch (error) {
+      console.error('Failed to save content:', error);
+      toast.error('Failed to save content. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !pageId) return;
 
+    setIsUploading(true);
     try {
       const result = await api.uploadFile(file, pageId);
+      toast.success('File uploaded successfully!');
       // Handle the uploaded file URL (e.g., update the content state)
       console.log('File uploaded:', result.url);
     } catch (error) {
       console.error('Failed to upload file:', error);
+      toast.error('Failed to upload file. Please try again.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
   if (isLoading) {
-    return <div className="p-4 text-gray-600 dark:text-gray-400">Loading...</div>;
+    return <div className="p-4 text-gray-400">Loading...</div>;
   }
 
   if (!content) {
-    return <div className="p-4 text-red-600 dark:text-red-400">Content not found</div>;
+    return <div className="p-4 text-red-400">Content not found</div>;
   }
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Page Content</h1>
+      <div className="flex justify-end items-center mb-6">
+        {/* <h1 className="text-2xl font-bold text-white">Page Content</h1> */}
         <button
-          onClick={() => setIsEditing(!isEditing)}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+          onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+          disabled={isSaving}
+          className="px-4 py-2 text-white rounded bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300"
         >
-          {isEditing ? 'Save' : 'Edit'}
+          {isSaving ? 'Saving...' : isEditing ? 'Save' : 'Edit'}
         </button>
       </div>
 
@@ -65,32 +99,32 @@ export function PageContentComponent() {
         <textarea
           value={editedMarkdown}
           onChange={(e) => setEditedMarkdown(e.target.value)}
-          className="w-full h-96 p-4 border rounded dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+          className="w-full h-96 p-4 border rounded bg-gray-800 border-gray-700 text-white"
         />
       ) : (
-        <div className="prose dark:prose-invert max-w-none">
-          <ReactMarkdown>{content.markdown}</ReactMarkdown>
+        <div className="prose prose-invert max-w-none">
+          <ReactMarkdown>{content.markdown || content.content}</ReactMarkdown>
         </div>
       )}
 
       {/* Media content */}
       <div className="mt-8">
-        {content.images.length > 0 && (
+        {(content.images?.length ?? 0) > 0 && (
           <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">Images</h2>
+            <h2 className="text-xl font-semibold mb-4 text-white">Images</h2>
             <div className="grid grid-cols-2 gap-4">
-              {content.images.map((url, index) => (
+              {content.images?.map((url, index) => (
                 <img key={index} src={url} alt={`Image ${index + 1}`} className="rounded-lg" />
               ))}
             </div>
           </div>
         )}
 
-        {content.audios.length > 0 && (
+        {(content.audios?.length ?? 0) > 0 && (
           <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">Audio Files</h2>
+            <h2 className="text-xl font-semibold mb-4 text-white">Audio Files</h2>
             <div className="space-y-4">
-              {content.audios.map((url, index) => (
+              {content.audios?.map((url, index) => (
                 <audio key={index} controls className="w-full">
                   <source src={url} type="audio/mpeg" />
                   Your browser does not support the audio element.
@@ -100,19 +134,19 @@ export function PageContentComponent() {
           </div>
         )}
 
-        {content.files.length > 0 && (
+        {(content.files?.length ?? 0) > 0 && (
           <div className="mb-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">Files</h2>
+            <h2 className="text-xl font-semibold mb-4 text-white">Files</h2>
             <div className="space-y-2">
-              {content.files.map((url, index) => (
+              {content.files?.map((url, index) => (
                 <a
                   key={index}
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block text-blue-600 dark:text-blue-400 hover:underline"
+                  className="block text-blue-400 hover:underline"
                 >
-                  File {index + 1}
+                  {url.split('/').pop()}
                 </a>
               ))}
             </div>
@@ -122,18 +156,27 @@ export function PageContentComponent() {
 
       {/* File upload section */}
       <div className="mt-8">
-        <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">Upload Files</h2>
-        <input
-          type="file"
-          onChange={handleFileUpload}
-          className="block w-full text-sm text-gray-500 dark:text-gray-400
-            file:mr-4 file:py-2 file:px-4
-            file:rounded file:border-0
-            file:text-sm file:font-semibold
-            file:bg-blue-50 file:text-blue-700
-            dark:file:bg-blue-900 dark:file:text-blue-300
-            hover:file:bg-blue-100 dark:hover:file:bg-blue-800"
-        />
+        <h2 className="text-xl font-semibold mb-4 text-white">Upload Files</h2>
+        <div className="relative">
+          <input
+            type="file"
+            onChange={handleFileUpload}
+            disabled={isUploading}
+            className="block w-full text-sm text-gray-400
+              file:mr-4 file:py-2 file:px-4
+              file:rounded file:border-0
+              file:text-sm file:font-semibold
+              file:bg-blue-50 file:text-blue-700
+              dark:file:bg-blue-900 dark:file:text-blue-300
+              hover:file:bg-blue-100 dark:hover:file:bg-blue-800
+              disabled:opacity-50"
+          />
+          {isUploading && (
+            <div className="absolute right-0 top-0 bottom-0 flex items-center pr-4">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
