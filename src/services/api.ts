@@ -369,4 +369,22 @@ export const api = {
       return { ...mockContent, ...data };
     }
   },
+
+  async deleteFile(fileUrl: string, pageId: string): Promise<void> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: 'DELETE',
+        ...fetchOptions,
+        body: JSON.stringify({ fileUrl, pageId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete file');
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      // In case of an error, we will handle it in the component
+      throw error;
+    }
+  }
 }; 

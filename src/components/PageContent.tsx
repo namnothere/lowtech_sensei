@@ -13,6 +13,7 @@ export function PageContentComponent() {
   const [editedMarkdown, setEditedMarkdown] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchContent = async () => {
@@ -64,13 +65,56 @@ export function PageContentComponent() {
     try {
       const result = await api.uploadFile(file, pageId);
       toast.success('File uploaded successfully!');
-      // Handle the uploaded file URL (e.g., update the content state)
-      console.log('File uploaded:', result.url);
+      
+      // Update the content state with the new file
+      if (content) {
+        const updatedContent = {
+          ...content,
+          files: [...(content.files || []), result.url]
+        };
+        setContent(updatedContent);
+        console.log(updatedContent);
+        
+        // Save the updated content to the server
+        // await api.savePageContent(pageId, updatedContent);
+      }
     } catch (error) {
       console.error('Failed to upload file:', error);
       toast.error('Failed to upload file. Please try again.');
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleDeleteFile = async (url: string, index: number) => {
+    if (!pageId || !content) return;
+    
+    setIsDeleting(url);
+    try {
+      await api.deleteFile(url, pageId);
+      
+      // Update the content state by removing the deleted file
+      const updatedFiles = [...(content.files || [])];
+      updatedFiles.splice(index, 1);
+
+      
+      const updatedContent = {
+        ...content,
+        files: updatedFiles
+      };
+      
+      console.log(updatedContent);
+      setContent(updatedContent);
+      
+      // Save the updated content to the server
+      // await api.savePageContent(pageId, updatedContent);
+      
+      toast.success('File deleted successfully!');
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      toast.error('Failed to delete file. Please try again.');
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -134,20 +178,46 @@ export function PageContentComponent() {
           </div>
         )}
 
-        {(content.files?.length ?? 0) > 0 && (
+        {(content.materials?.length ?? 0) > 0 && (
           <div className="mb-6">
             <h2 className="text-xl font-semibold mb-4 text-white">Files</h2>
             <div className="space-y-2">
-              {content.files?.map((url, index) => (
-                <a
-                  key={index}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block text-blue-400 hover:underline"
-                >
-                  {url.split('/').pop()}
-                </a>
+              {content.materials?.map((material, index) => (
+                <div key={index} className="flex items-center justify-between">
+                  <a
+                    href={material.public_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:underline"
+                  >
+                    {material.file_name}
+                  </a>
+                  <button
+                    onClick={() => handleDeleteFile(material.public_url, index)}
+                    disabled={isDeleting === material.public_url}
+                    className="ml-2 text-xs text-red-400 hover:text-red-500 p-1 rounded-full"
+                    title="Delete file"
+                  >
+                    {isDeleting === material.public_url ? (
+                      <div className="animate-spin h-4 w-4 border-b-2 border-red-500 rounded-full"></div>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               ))}
             </div>
           </div>

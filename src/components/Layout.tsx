@@ -2,19 +2,17 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { Lesson } from '../types';
 import { api } from '../services/api';
-import { TempLesson } from './TempLesson';
-import { toast } from 'react-hot-toast';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedLessons, setExpandedLessons] = useState<Set<string>>(new Set());
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
-  const [tempLesson, setTempLesson] = useState<Lesson | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
   const fetchLessons = async () => {
+    setIsSidebarExpanded(true);
     try {
       const data = await api.getLessons();
       setLessons(data);
@@ -50,22 +48,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     navigate('/create-lesson');
   };
 
-  const handleSaveTempLesson = async (updatedLesson: Lesson) => {
-    try {
-      // Here you would typically call your API to save the lesson
-      // await api.saveLesson(updatedLesson);
-      toast.success('Lesson saved successfully!');
-      setTempLesson(null);
-      await fetchLessons(); // Refresh the lessons list
-    } catch (error) {
-      console.error('Failed to save lesson:', error);
-      toast.error('Failed to save lesson. Please try again.');
-    }
-  };
 
-  const handleDiscardTempLesson = () => {
-    setTempLesson(null);
-  };
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -132,7 +115,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <div className="p-4 text-gray-400">Loading...</div>
               ) : (
                 <ul className="space-y-2">
-                  {tempLesson && (
+                  {/* {tempLesson && (
                     <TempLesson
                       key={tempLesson.id}
                       lesson={tempLesson}
@@ -142,7 +125,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       onSave={handleSaveTempLesson}
                       onDiscard={handleDiscardTempLesson}
                     />
-                  )}
+                  )} */}
                   {lessons.map((lesson) => (
                     <li key={lesson.id}>
                       <button

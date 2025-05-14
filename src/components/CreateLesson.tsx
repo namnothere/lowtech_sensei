@@ -46,7 +46,6 @@ export function CreateLesson() {
         sectionTitle: sectionTitle,
         images: [],
         audios: [],
-        files: [],
       };
 
       console.log("data", data); 
@@ -61,6 +60,8 @@ export function CreateLesson() {
       setIsSaving(false);
     }
   };
+
+
 
   return (
     <div className="max-w-4xl mx-auto">
